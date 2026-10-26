@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Hệ Thống Quản Lý Sinh Viên (Gemini API)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>body { background: #f8f9fa; }</style>
+</head>
+<body>
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold mb-0">🎓 Hệ Thống Quản Lý Sinh Viên (Gemini API)</h3>
+    </div>
+
+    <!-- Thanh Thêm Sinh Viên Nhanh (Thủ công) -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-2">
+                    <input type="text" id="newId" class="form-control form-control-sm" placeholder="MSSV (VD: 524H0888)">
+                </div>
+                <div class="col-md-3">
+                    <input type="text" id="newName" class="form-control form-control-sm" placeholder="Họ và Tên">
+                </div>
+                <div class="col-md-3">
+                    <input type="text" id="newMajor" class="form-control form-control-sm" placeholder="Ngành học">
+                </div>
+                <div class="col-md-1">
+                    <input type="number" step="0.01" id="newGpa" class="form-control form-control-sm" placeholder="GPA">
+                </div>
+                <div class="col-md-2">
+                    <input type="text" id="newStatus" class="form-control form-control-sm" placeholder="Trạng thái" value="Đang học">
+                </div>
+                <div class="col-md-1">
+                    <button class="btn btn-dark btn-sm w-100" onclick="addStudentManual()">+ Thêm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bảng danh sách sinh viên -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr><th>MSSV</th><th>Họ Tên</th><th>Ngành học</th><th>GPA</th><th>Trạng thái</th></tr>
+                </thead>
+                <tbody id="studentTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Cột 1: Tra cứu (Function Calling + Text Generation) -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white fw-bold">🤖 Tra cứu (Function Calling)</div>
+                <div class="card-body">
+                    <div class="input-group mb-3">
+                        <input type="text" id="chatInput" class="form-control" placeholder="Nhập MSSV hoặc câu hỏi..." onkeydown="if(event.key==='Enter') sendChat()">
+                        <button class="btn btn-primary px-4" onclick="sendChat()">Gửi</button>
+                    </div>
+                    <div id="chatResult" class="p-3 bg-light rounded border d-none">
+                        <span id="fnBadge" class="badge bg-success mb-2"></span>
+                        <div id="aiAnswer" class="text-dark" style="white-space: pre-line;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cột 2: Nhập Đơn từ (Document Analysis + Structured Outputs) -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white fw-bold">📄 Nhập Đơn từ (Structured Outputs)</div>
+                <div class="card-body">
+                    <textarea id="docInput" class="form-control mb-3" rows="4">ĐƠN XIN XÁC NHẬN: Em là Nguyễn Quốc Bảo, ngành An toàn Thông tin, MSSV 524H0555. Điểm GPA của em là 3.65, tình trạng Đang học.</textarea>
+                    <button id="docBtn" class="btn btn-success w-100" onclick="analyzeDoc()">Trích xuất tự động vào Data</button>
+                    <div id="docResult" class="mt-3 p-2 bg-light rounded border d-none">
+                        <span class="badge bg-secondary mb-1">Structured JSON Output:</span>
+                        <pre id="jsonOutput" class="small mb-0 text-success fw-semibold"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function loadStudents() {
+        const res = await fetch('/api/students');
+        const data = await res.json();
+        document.getElementById('studentTableBody').innerHTML = data.map(s => `
+            <tr><td><b>${s.id}</b></td><td>${s.fullName}</td><td>${s.major}</td><td>${s.gpa.toFixed(2)}</td><td>${s.status}</td></tr>
+        `).join('');
+    }
+
+    async function addStudentManual() {
+        const payload = {
+            id: document.getElementById('newId').value.trim(),
+            fullName: document.getElementById('newName').value.trim(),
+            major: document.getElementById('newMajor').value.trim(),
+            gpa: parseFloat(document.getElementById('newGpa').value) || 0.0,
+            status: document.getElementById('newStatus').value.trim() || 'Đang học'
+        };
+        if (!payload.id || !payload.fullName) return alert('Vui lòng nhập MSSV và Họ tên!');
+        await fetch('/api/students', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        document.getElementById('newId').value = '';
+        document.getElementById('newName').value = '';
+        document.getElementById('newMajor').value = '';
+        document.getElementById('newGpa').value = '';
+        loadStudents();
+    }
+
+    async function sendChat() {
+        const msg = document.getElementById('chatInput').value.trim();
+        if (!msg) return;
+        document.getElementById('chatResult').classList.remove('d-none');
+        document.getElementById('aiAnswer').innerText = '⏳ Gemini đang xử lý...';
+        document.getElementById('fnBadge').innerText = '';
+
+        const res = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: msg})
+        });
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('fnBadge').innerText = 'Hàm đã dùng: ' + data.functionCalled;
+            document.getElementById('aiAnswer').innerText = data.answer;
+        } else {
+            document.getElementById('fnBadge').innerText = '⚠️ Lỗi';
+            document.getElementById('aiAnswer').innerText = data.detail;
+        }
+    }
+
+    async function analyzeDoc() {
+        const text = document.getElementById('docInput').value.trim();
+        if (!text) return;
+        const btn = document.getElementById('docBtn');
+        btn.disabled = true;
+        btn.innerText = '⏳ Đang phân tích văn bản & ép kiểu JSON...';
+        document.getElementById('docResult').classList.remove('d-none');
+        document.getElementById('jsonOutput').innerText = 'Đang xử lý...';
+
+        const res = await fetch('/api/ai/analyze-doc', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({documentText: text})
+        });
+        const data = await res.json();
+        btn.disabled = false;
+        btn.innerText = 'Trích xuất tự động vào Data';
+        if (res.ok) {
+            document.getElementById('jsonOutput').innerText = JSON.stringify(data, null, 2);
+            loadStudents();
+        } else {
+            document.getElementById('jsonOutput').innerText = "Lỗi: " + data.detail;
+        }
+    }
+
+    loadStudents();
+</script>
+</body>
+</html>
