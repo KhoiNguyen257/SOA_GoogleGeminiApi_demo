@@ -10,6 +10,7 @@
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="fw-bold mb-0">🎓 Hệ Thống Quản Lý Sinh Viên (Gemini API)</h3>
+        <a href="/docs" target="_blank" class="btn btn-sm btn-outline-secondary">Swagger API (/docs)</a>
     </div>
 
     <!-- Thanh Thêm Sinh Viên Nhanh (Thủ công) -->
@@ -57,7 +58,7 @@
                 <div class="card-header bg-white fw-bold">🤖 Tra cứu (Function Calling)</div>
                 <div class="card-body">
                     <div class="input-group mb-3">
-                        <input type="text" id="chatInput" class="form-control" placeholder="Nhập MSSV hoặc câu hỏi..." onkeydown="if(event.key==='Enter') sendChat()">
+                        <input type="text" id="chatInput" class="form-control" placeholder="Nhập MSSV hoặc câu hỏi (VD: 524H0114)" onkeydown="if(event.key==='Enter') sendChat()">
                         <button class="btn btn-primary px-4" onclick="sendChat()">Gửi</button>
                     </div>
                     <div id="chatResult" class="p-3 bg-light rounded border d-none">
@@ -73,11 +74,11 @@
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-white fw-bold">📄 Nhập Đơn từ (Structured Outputs)</div>
                 <div class="card-body">
-                    <textarea id="docInput" class="form-control mb-3" rows="4">ĐƠN XIN XÁC NHẬN: Em là Nguyễn Quốc Bảo, ngành An toàn Thông tin, MSSV 524H0555. Điểm GPA của em là 3.65, tình trạng Đang học.</textarea>
+                    <textarea id="docInput" class="form-control mb-3" rows="3">ĐƠN XIN XÁC NHẬN: Em là Trần Quốc Bảo, ngành Mạng máy tính, MSSV 524H0412. Điểm GPA của em là 1.85, tình trạng Cảnh báo học vụ.</textarea>
                     <button id="docBtn" class="btn btn-success w-100" onclick="analyzeDoc()">Trích xuất tự động vào Data</button>
                     <div id="docResult" class="mt-3 p-2 bg-light rounded border d-none">
                         <span class="badge bg-secondary mb-1">Structured JSON Output:</span>
-                        <pre id="jsonOutput" class="small mb-0 text-success fw-semibold"></pre>
+                        <pre id="jsonOutput" class="small mb-0 text-success fw-semibold" style="white-space: pre-wrap;"></pre>
                     </div>
                 </div>
             </div>
@@ -95,19 +96,27 @@
     }
 
     async function addStudentManual() {
+        const gpaInput = document.getElementById('newGpa').value.trim();
         const payload = {
             id: document.getElementById('newId').value.trim(),
             fullName: document.getElementById('newName').value.trim(),
             major: document.getElementById('newMajor').value.trim(),
-            gpa: parseFloat(document.getElementById('newGpa').value) || 0.0,
-            status: document.getElementById('newStatus').value.trim() || 'Đang học'
+            gpa: gpaInput === '' ? -1 : parseFloat(gpaInput),
+            status: document.getElementById('newStatus').value.trim()
         };
-        if (!payload.id || !payload.fullName) return alert('Vui lòng nhập MSSV và Họ tên!');
-        await fetch('/api/students', {
+
+        const res = await fetch('/api/students', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
         });
+        const data = await res.json();
+
+        if (!res.ok) {
+            alert('⚠️ ' + data.detail);
+            return;
+        }
+
         document.getElementById('newId').value = '';
         document.getElementById('newName').value = '';
         document.getElementById('newMajor').value = '';
@@ -119,7 +128,7 @@
         const msg = document.getElementById('chatInput').value.trim();
         if (!msg) return;
         document.getElementById('chatResult').classList.remove('d-none');
-        document.getElementById('aiAnswer').innerText = '⏳ Gemini đang xử lý...';
+        document.getElementById('aiAnswer').innerText = '⏳ Gemini đang gọi hàm và tổng hợp câu trả lời...';
         document.getElementById('fnBadge').innerText = '';
 
         const res = await fetch('/api/ai/chat', {
@@ -141,10 +150,13 @@
         const text = document.getElementById('docInput').value.trim();
         if (!text) return;
         const btn = document.getElementById('docBtn');
+        const out = document.getElementById('jsonOutput');
+
         btn.disabled = true;
         btn.innerText = '⏳ Đang phân tích văn bản & ép kiểu JSON...';
         document.getElementById('docResult').classList.remove('d-none');
-        document.getElementById('jsonOutput').innerText = 'Đang xử lý...';
+        out.className = 'small mb-0 text-muted';
+        out.innerText = 'Đang xử lý...';
 
         const res = await fetch('/api/ai/analyze-doc', {
             method: 'POST',
@@ -154,11 +166,14 @@
         const data = await res.json();
         btn.disabled = false;
         btn.innerText = 'Trích xuất tự động vào Data';
+
         if (res.ok) {
-            document.getElementById('jsonOutput').innerText = JSON.stringify(data, null, 2);
+            out.className = 'small mb-0 text-success fw-semibold';
+            out.innerText = JSON.stringify(data, null, 2);
             loadStudents();
         } else {
-            document.getElementById('jsonOutput').innerText = "Lỗi: " + data.detail;
+            out.className = 'small mb-0 text-danger fw-bold';
+            out.innerText = '❌ ' + data.detail;
         }
     }
 
