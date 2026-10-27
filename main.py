@@ -33,15 +33,14 @@ class DocAnalysisRequest(BaseModel):
 students_db: List[Student] = [
     Student(id="524H0114", fullName="Võ Khôi Nguyên", major="Kỹ thuật Phần mềm", gpa=3.75, status="Đang học"),
     Student(id="524H0135", fullName="Nguyễn Phan Anh Tuấn", major="Kỹ thuật Phần mềm", gpa=3.68, status="Đang học"),
-    Student(id="524H0201", fullName="Phạm Duy Khang", major="Hệ thống Thông tin", gpa=3.50, status="Đang học"),
+    Student(id="524H0201", fullName="Trần Duy Khang", major="Hệ thống Thông tin", gpa=3.50, status="Đang học"),
     Student(id="524H0309", fullName="Lê Minh Châu", major="Khoa học Máy tính", gpa=3.92, status="Đạt học bổng"),
 ]
 
 last_called_fn = ""
 
-# =====================================================================
 # HÀM KIỂM TRA: CHẶN TRÙNG MSSV (KHÔNG GHI ĐÈ) & CHẶN THIẾU THUỘC TÍNH
-# =====================================================================
+
 def validate_student(student: Student, raw_text: str = None):
     invalid_values = {"", "n/a", "none", "null", "unknown", "không có", "524h0000"}
 
